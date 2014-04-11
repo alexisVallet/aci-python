@@ -10,7 +10,7 @@ import re
 import json
 import os.path
 
-def fanartScraper(searchString, nbImages, sortBy, outputFolder):
+def fanartScraper(searchString, nbImages, sortBy, outputFolder, interactive = True):
     """ Scrapes fanart images out of deviantArt, writing them to a specific folder.
         Also puts all the metadata into a json file for future usage.
     Args:
@@ -58,4 +58,26 @@ def fanartScraper(searchString, nbImages, sortBy, outputFolder):
         urllib.urlretrieve(feed.entries[i].media_content[0]['url'],
                            os.path.join(outputFolder, filename + '.' + fileExtension))
 
-fanartScraper('asuka langley', 50, 'popular', os.path.join('data', 'background'))
+characterNames = [
+    'asuka langley',
+    'rei ayanami',
+    'miku hatsune',
+    'monkey d luffy',
+    'roronoa zoro',
+    'uzumaki naruto',
+    'sakura haruno',
+    'phoenix wright',
+    'maya fey',
+    'suzumiya haruhi',
+    'asahina mikuru',
+    'ginko',
+    'yu narukami',
+    'naoto shirogane',
+    'shigeru akagi',
+    'kaiji',
+    'lain',
+    'faye valentine',
+    'radical edward',
+    'motoko kusanagi'
+    ]
+fanartScraper('asuka langley', 10, 'popular', os.path.join('data', 'background'))
