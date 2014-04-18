@@ -6,13 +6,7 @@ import math
 import os
 import os.path
 from scipy.ndimage.filters import gaussian_filter
-
-def showScaled(winName, grayscaleImage):
-    maxVal = np.amax(grayscaleImage)
-    minVal = np.amin(grayscaleImage)
-    print winName + ' min: ' + repr(minVal) + ', max: ' + repr(maxVal)
-    cv2.imshow(winName, (grayscaleImage - minVal) / (maxVal - minVal))
-    cv2.waitKey(0)
+import cvUtils
 
 def spectralResidualSaliency(grayscaleImage, avgHalfsize = 8, gaussianSigma = 32, maxDim = 500):
     """Computes a saliency map of an image using the spectral residual saliency method
@@ -24,7 +18,7 @@ def spectralResidualSaliency(grayscaleImage, avgHalfsize = 8, gaussianSigma = 32
         gaussianSigma (number): sigma parameter to the final gaussian filter.
         maxDim (int): maximum size of the largest dimension for the output saliency map.
     Returns:
-        A saliency map of the input image.
+        A saliency map of the input image, and optionally the resized source image.
     """
     # Resize the source image
     newSize = None
@@ -55,7 +49,7 @@ def spectralResidualSaliency(grayscaleImage, avgHalfsize = 8, gaussianSigma = 32
     minSaliency = np.amin(filteredMap)
     maxSaliency = np.amax(filteredMap)
 
-    return (filteredMap - minSaliency) / (maxSaliency - minSaliency)
+    return ((filteredMap - minSaliency) / (maxSaliency - minSaliency), resizedImage)
     
 
 def saliencyThresh(saliencyMap):
@@ -69,21 +63,22 @@ def saliencyThresh(saliencyMap):
         0 otherwise.
     """
     floatSaliency = np.array(saliencyMap, dtype='float32')
-    threshValue = np.mean(floatSaliency)
+    threshValue = np.mean(floatSaliency) / 3
     retval, thresholded = cv2.threshold(floatSaliency, threshValue, 1, cv2.THRESH_BINARY)
     return thresholded
 
-imageFolder = 'data/background'
-imageFilenames = [f for f in os.listdir(imageFolder) 
-                  if os.path.isfile(os.path.join(imageFolder, f)) 
-                  and f.lower().endswith(('.png', '.jpg', '.gif'))]
-
-for imageFilename in imageFilenames:
-    image = cv2.imread(os.path.join(imageFolder, imageFilename), 
-                       cv2.CV_LOAD_IMAGE_GRAYSCALE)
-    saliencyMap = spectralResidualSaliency(image)
-    protoObjects = saliencyThresh(saliencyMap)
-    cv2.imshow('original', image)
-    cv2.imshow('saliency', saliencyMap)
-    cv2.imshow('protoObjects', protoObjects)
-    cv2.waitKey(0)
+if __name__ == "__main__":
+    imageFolder = 'data/background'
+    imageFilenames = [f for f in sorted(os.listdir(imageFolder), key=str.lower)
+                      if os.path.isfile(os.path.join(imageFolder, f)) 
+                      and f.lower().endswith(('.png', '.jpg', '.gif'))]
+    
+    for imageFilename in imageFilenames:
+        image = cv2.imread(os.path.join(imageFolder, imageFilename), 
+                           cv2.CV_LOAD_IMAGE_GRAYSCALE)
+        saliencyMap = spectralResidualSaliency(image)
+        protoObjects = saliencyThresh(saliencyMap)
+        cv2.imshow('original', image)
+        cv2.imshow('saliency', saliencyMap)
+        cv2.imshow('protoObjects', protoObjects)
+        cv2.waitKey(0)

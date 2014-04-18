@@ -9,8 +9,9 @@ import requests
 import re
 import json
 import os.path
+import cv2
 
-def fanartScraper(searchString, nbImages, sortBy, outputFolder, interactive = True):
+def fanartScraper(searchString, nbImages, sortBy, outputFolder):
     """ Scrapes fanart images out of deviantArt, writing them to a specific folder.
         Also puts all the metadata into a json file for future usage.
     Args:
@@ -36,15 +37,14 @@ def fanartScraper(searchString, nbImages, sortBy, outputFolder, interactive = Tr
                          + " because the feed only contains " + len(feed.entries))
     # Set the base filename for both json and image files
     baseFilename = reduce(lambda word, rest: word + '_' + rest, searchWords)
+    currentImageIdx = 0
+    currentEntryIdx = 0
 
-    for i in range(0, nbImages):
-        filename = baseFilename + '_' + repr(i)
-        # Write the entire entry to a json file for exhaustiveness
-        jsonFile = open(os.path.join(outputFolder, filename + '.json'), 'w')
-        json.dump(feed.entries[i], jsonFile, indent = 4, default = repr)
-        jsonFile.close()
+    while currentImageIdx < nbImages and currentEntryIdx < len(feed.entries):
+        filename = baseFilename + '_' + repr(currentImageIdx)
+        currentEntry = feed.entries[currentEntryIdx]
         # First check that the image url has the right mime type 
-        resp = requests.get(feed.entries[i].media_content[0]['url'])
+        resp = requests.get(currentEntry.media_content[0]['url'])
         fileExtension = None
         contentType = resp.headers['content-type']
         typeToExt = {
@@ -53,31 +53,57 @@ def fanartScraper(searchString, nbImages, sortBy, outputFolder, interactive = Tr
             'image/gif': 'gif',
             'image/svg+xml': 'svg'
             }
-        fileExtension = typeToExt[contentType]
-        # Write the image to the file. urllib provides a method for that so whatever.
-        urllib.urlretrieve(feed.entries[i].media_content[0]['url'],
-                           os.path.join(outputFolder, filename + '.' + fileExtension))
+        try:
+            fileExtension = typeToExt[contentType]
+        except KeyError:
+            raise RuntimeError("The url specified by the field for " + filename 
+                               + " is not an image.")
+        # Display the image and ask the user whether it's the right character
+        # Can't think of an easy way to load the binary data straight into opencv, so
+        # I first write it to a file which is then deleted if it's not the right char.
+        imageFilename = os.path.join(outputFolder, filename + '.' + fileExtension)
+        urllib.urlretrieve(currentEntry.media_content[0]['url'],imageFilename)
+        image = cv2.imread(imageFilename)
+        pressedKey = -1
+        yesCode = ord('y')
+        noCode = ord('n')
+        while pressedKey != yesCode and pressedKey != noCode:
+            cv2.imshow("Is this character " + searchString + "?", image)
+            pressedKey = cv2.waitKey(0)
+        if pressedKey == yesCode:
+            # Write the entire entry to a json file for exhaustiveness
+            jsonFile = open(os.path.join(outputFolder, filename + '.json'), 'w')
+            json.dump(currentEntry, jsonFile, indent = 4, default = repr)
+            jsonFile.close()
+            currentImageIdx += 1
+        else:
+            os.remove(imageFilename)
+        currentEntryIdx += 1
 
-characterNames = [
-    'asuka langley',
-    'rei ayanami',
-    'miku hatsune',
-    'monkey d luffy',
-    'roronoa zoro',
-    'uzumaki naruto',
-    'sakura haruno',
-    'phoenix wright',
-    'maya fey',
-    'suzumiya haruhi',
-    'asahina mikuru',
-    'ginko',
-    'yu narukami',
-    'naoto shirogane',
-    'shigeru akagi',
-    'kaiji',
-    'lain',
-    'faye valentine',
-    'radical edward',
-    'motoko kusanagi'
-    ]
-fanartScraper('asuka langley', 10, 'popular', os.path.join('data', 'background'))
+if __name__ == "__main__":
+    characterNames = [
+        'asuka langley',
+        'rei ayanami',
+        'miku hatsune',
+        'monkey d luffy',
+        'roronoa zoro',
+        'uzumaki naruto',
+        'sakura haruno',
+        'phoenix wright',
+        'maya fey',
+        'suzumiya haruhi',
+        'asahina mikuru',
+        'ginko',
+        'yu narukami',
+        'naoto shirogane',
+        'shigeru akagi',
+        'kaiji',
+        'lain',
+        'faye valentine',
+        'radical edward',
+        'motoko kusanagi'
+        ]
+    
+    for name in characterNames:
+        fanartScraper(name, 10, 'popular', os.path.join('data', 'background'))
+
