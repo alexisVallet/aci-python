@@ -27,15 +27,22 @@ def averageImage(filenames, dimensions = (800, 800)):
         average += resized
     return average / (len(filenames) * 255)
 
-def averageLogSpectrum(filenames, nbFreq = 128, nbAngles = 128):
-    avgMagSpectrum = np.zeros([nbFreq])
+def averageSpectrum(filenames, nbFreq = 128, nbAngles = 128, removeZero = False):
+    actualNbFreq = nbFreq + 1 if removeZero else nbFreq
+    avgMagSpectrum = np.zeros([actualNbFreq])
 
     for filename in filenames:
         print 'processing ' + filename
         image = cv2.imread(filename, cv2.CV_LOAD_IMAGE_GRAYSCALE)
-        avgOrientSpectrum = averageSpectrumOverOrientations(image, nbFreq, nbAngles)
+        if removeZero:
+            # subtract average brightness so the 0 frequency is zeroed
+            image = image - np.mean(image)
+        avgOrientSpectrum = averageSpectrumOverOrientations(image, actualNbFreq, 
+                                                            nbAngles)
         avgMagSpectrum += avgOrientSpectrum
-    return np.log(avgMagSpectrum / len(filenames))
+    avgMagSpectrum /= len(filenames)
+        
+    return avgMagSpectrum[1:actualNbFreq] if removeZero else avgMagSpectrum[0:actualNbFreq]
 
 def averageSpectrumOverOrientations(grayscaleImage, nbFreq = 128, nbAngles = 128):
     # The mathematical reasoning behind the code relies on geometrical insight not
@@ -71,8 +78,17 @@ if __name__ == "__main__":
     imageFilenames = [os.path.join(imageFolder, f) for f in sorted(os.listdir(imageFolder), key=str.lower)
                       if os.path.isfile(os.path.join(imageFolder, f)) 
                       and f.lower().endswith(('.png', '.jpg', '.gif'))]
-
-    plt.plot(averageLogSpectrum(imageFilenames))
+    avgSpectrum = averageSpectrum(imageFilenames, removeZero = True)
+    plt.plot(avgSpectrum)
+    plt.ylabel('spectrum intensity')
+    plt.xlabel('frequency')
+    plt.show()
+    logSpectrum = np.log(avgSpectrum)
+    plt.plot(logSpectrum)
     plt.ylabel('log spectrum intensity')
+    plt.xlabel('frequency')
+    plt.show()
+    plt.plot(np.log(logSpectrum + 1))
+    plt.ylabel('log log spectrum intensity')
     plt.xlabel('frequency')
     plt.show()

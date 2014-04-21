@@ -36,17 +36,19 @@ class SwitchBGFGSegments:
         self.fgModel = fgModel
         self.image = np.empty_like(image)
         self.draw()
+        self.lButtonPressed = False
 
     def switchLabel(self, event, x, y):
         if event == cv2.EVENT_LBUTTONDOWN:
+            self.lButtonPressed = True
+        elif event == cv2.EVENT_LBUTTONUP:
+            self.lButtonPressed = False
+        elif event == cv2.EVENT_MOUSEMOVE and self.lButtonPressed == True:
             # modify mask accordingly
             if self.gcMask[y,x] == cv2.GC_BGD or cv2.GC_PR_BGD:
                 self.gcMask[y,x] = cv2.GC_FGD
             else:
                 self.gcMask[y,x] = cv2.GC_BGD
-            # run grabcut again
-            cv2.grabCut(self.sourceImage, self.gcMask, None, self.bgModel, self.fgModel,
-                        1, cv2.GC_INIT_WITH_MASK)
             # draw the results
             self.draw()
 
@@ -96,9 +98,14 @@ def manualGrabcutRemoval(bgrImage):
     cv2.setMouseCallback('image', lambda e,x,y,f,p: bgSwitcher.switchLabel(e,x,y))
 
     key = ord('a')
-    while key != ord('n'):
+    while key != ord('e'):
         cv2.imshow('image', bgSwitcher.image)
-        cv2.waitKey(int(1000/60))
+        key = cv2.waitKey(int(1000/60))
+        if key == ord('n'):
+            # run grabcut again
+            cv2.grabCut(bgSwitcher.sourceImage, bgSwitcher.gcMask, None, 
+                        bgSwitcher.bgModel, bgSwitcher.fgModel,
+                        1, cv2.GC_INIT_WITH_MASK)
     
         
 
