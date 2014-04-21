@@ -3,6 +3,17 @@ import cv2
 import saliency
 import cvUtils
 import numpy as np
+from sklearn import metrics
+
+def bgrmRandMeasure(mask1, mask2):
+    """ Computes the rand measure between 2 background removals.
+    Args:
+        mask1 (array): binary mask for the first background removal.
+        mask2 (array): binary mask for the second background removal.
+    Returns:
+        A number between -1 and 1, with the larger number meaning the closest removals.
+    """
+    return metrics.adjusted_rand_score(mask1.flatten('C'), mask2.flatten('C'))
 
 def srsGrabcutBgRemoval(bgrImage):
     """ Runs background removal on an image using a combination of spectral residual
@@ -36,17 +47,18 @@ def srsGrabcutBgRemoval(bgrImage):
     return cv2.resize(finalMask, (originalCols, originalRows))
 
 if __name__ == "__main__":
-    imageFolder = 'data/background'
-    outputFolder = 'data/srs_grabcut_bgrm'
-    imageNames = [f for f in sorted(os.listdir(imageFolder), key=str.lower)
-                  if os.path.isfile(os.path.join(imageFolder, f)) 
-                  and f.lower().endswith(('.png', '.jpg', '.gif'))]
-
-    for imageName in imageNames:
-        print 'Processing ' + imageName
-        inputFilename = os.path.join(imageFolder, imageName)
-        image = cv2.imread(inputFilename)
-        mask = srsGrabcutBgRemoval(image)
-        maskedImage = cvUtils.maskAsAlpha(image, mask)
-        cv2.imwrite(os.path.join(outputFolder, os.path.splitext(imageName)[0] + '.png'),
-                    maskedImage)
+    manualFolder = 'data/manual_grabcut_bgrm'
+    autoFolder = 'data/srs_grabcut_bgrm'
+    mikurunImages = lambda folder: [os.path.join(folder, f) for f in sorted(os.listdir(folder), key=str.lower)
+                                    if os.path.isfile(os.path.join(folder, f))
+                                    and f.lower().endswith('.png')
+                                    and f.lower().startswith('asahina')]
+    manualMikurun = mikurunImages(manualFolder)
+    autoMikurun = mikurunImages(autoFolder)
+    
+    for (manualFile, autoFile) in zip(manualMikurun, autoMikurun):
+        manualImage = cv2.imread(manualFile, -1)
+        autoImage = cv2.imread(autoFile, -1)
+        (manLayers, autoLayers) = map(cv2.split, (manualImage, autoImage))
+        randIndex = bgrmRandMeasure(manLayers[3], autoLayers[3])
+        print repr(randIndex)
