@@ -69,3 +69,16 @@ class ObjectsSegmentation:
 
     def getLargestObject(self):
         return (0,0) if self.largest == None else self.largest
+
+    def foregroundMask(self, fgVal=0, bgVal=255):
+        rows, cols = self.image.shape[0:2]
+        mask = np.empty([rows, cols], dtype=np.uint8)
+        
+        for i in range(0,rows):
+            for j in range(0,cols):
+                root = self.find(i,j)
+                if root == self.background:
+                    mask[i,j] = bgVal
+                else:
+                    mask[i,j] = fgVal
+        return mask

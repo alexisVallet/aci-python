@@ -1,4 +1,5 @@
 import os
+import os.path
 import numpy as np
 import cv2
 import objectSegmentation as objseg
@@ -134,3 +135,8 @@ def maskAsAlpha(image, mask):
     alayer = (mask * 255).astype(np.uint8)
     blayer, glayer, rlayer = cv2.split(image)
     return cv2.merge([blayer, glayer, rlayer, alayer])
+
+def imagesInFolder(folder):
+    return [os.path.join(folder, f) for f in sorted(os.listdir(folder), key=str.lower)
+            if os.path.isfile(os.path.join(folder, f))
+            and f.lower().endswith(('.png', '.jpg', '.gif'))]

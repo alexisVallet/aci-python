@@ -8,5 +8,5 @@ imageFilenames = [os.path.join(inputFolder, f) for f in sorted(os.listdir(inputF
                   if os.path.isfile(os.path.join(inputFolder, f)) 
                   and f.lower().endswith(('.png', '.jpg', '.gif'))]
 
-for filename in imageFilenames:
+for filename in imageFilenames[10:]:
     call(["./GrabCutExe", filename, outputFolder])

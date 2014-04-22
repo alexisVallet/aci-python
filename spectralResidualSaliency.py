@@ -7,6 +7,7 @@ import os
 import os.path
 from scipy.ndimage.filters import gaussian_filter
 import cvUtils
+import principalColorSpace as pcs
 
 def spectralResidualSaliency(grayscaleImage, avgHalfsize = 8, gaussianSigma = 32, maxDim = 500):
     """Computes a saliency map of an image using the spectral residual saliency method
@@ -68,17 +69,12 @@ def saliencyThresh(saliencyMap):
     return thresholded
 
 if __name__ == "__main__":
-    imageFolder = 'data/background'
-    imageFilenames = [f for f in sorted(os.listdir(imageFolder), key=str.lower)
-                      if os.path.isfile(os.path.join(imageFolder, f)) 
-                      and f.lower().endswith(('.png', '.jpg', '.gif'))]
-    
-    for imageFilename in imageFilenames:
-        image = cv2.imread(os.path.join(imageFolder, imageFilename), 
-                           cv2.CV_LOAD_IMAGE_GRAYSCALE)
-        saliencyMap = spectralResidualSaliency(image)
+    for imageFilename in cvUtils.imagesInFolder('data/background'):
+        image = cv2.imread(imageFilename)
+        grayscale = pcs.convertToPrincipalColor(cv2.cvtColor(image, cv2.COLOR_BGR2LAB))
+        saliencyMap, resizedImage = spectralResidualSaliency(grayscale)
         protoObjects = saliencyThresh(saliencyMap)
-        cv2.imshow('original', image)
+        cv2.imshow('original', grayscale)
         cv2.imshow('saliency', saliencyMap)
         cv2.imshow('protoObjects', protoObjects)
         cv2.waitKey(0)
