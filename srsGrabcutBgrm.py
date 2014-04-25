@@ -1,22 +1,47 @@
 import os
 import cv2
 import spectralResidualSaliency as srs
+import saliency
 import cvUtils
 import numpy as np
 from sklearn import metrics
 import principalColorSpace as pcs
 
-def bgrmRandMeasure(mask1, mask2):
-    """ Computes the rand measure between 2 background removals.
-    Args:
-        mask1 (array): binary mask for the first background removal.
-        mask2 (array): binary mask for the second background removal.
-    Returns:
-        A number between -1 and 1, with the larger number meaning the closest removals.
+def grabcutSaliencyThresh(saliencyMap):
+    """ Computes a mask for use with cv2.grabCut from a saliency map by doing a 4-tier
+        thresholding.
     """
-    return metrics.adjusted_rand_score(mask1.flatten('C'), mask2.flatten('C'))
+    # Compute relevant stats about the saliency map first
+    meanVal = np.mean(saliencyMap)
+    rows, cols = saliencyMap.shape[0:2]
+    gcMask = np.empty([rows, cols], dtype=np.uint8)
+    # Compute thresholds from the stats
+    x2 = meanVal / 3
+    
+    for i in range(0,rows):
+        for j in range(0,cols):
+            saliency = saliencyMap[i,j]
+            if saliency < x2:
+                gcMask[i,j] = cv2.GC_PR_BGD
+            else:
+                gcMask[i,j] = cv2.GC_PR_FGD
 
-def srsGrabcutBgRemoval(bgrImage):
+    return gcMask
+
+def grabcutMaskImage(gcMask):
+    rows, cols = gcMask.shape[0:2]
+    image = np.empty([rows, cols])
+    colorMap = { cv2.GC_BGD : 0,
+                 cv2.GC_PR_BGD : 0.33,
+                 cv2.GC_PR_FGD : 0.66,
+                 cv2.GC_FGD : 1 }
+
+    for i in range(0,rows):
+        for j in range(0,cols):
+            image[i,j] = colorMap[gcMask[i,j]]
+    return image
+
+def srsGrabcutBgRemoval(bgrImage, centerPrior = False, centerFactor = 0.7):
     """ Runs background removal on an image using a combination of spectral residual
         saliency and grabcut. Parametrized to give good results on animation images.
     Args:
@@ -25,15 +50,19 @@ def srsGrabcutBgRemoval(bgrImage):
         A mask with 1 for foreground and 0 for background, of the same size as the
         source image.
     """
-    image = pcs.convertToPrincipalColor(cv2.cvtColor(bgrImage, cv2.COLOR_BGR2LAB))
-    saliencyMap, resized = srs.spectralResidualSaliency(image)
-    protoObjects = srs.saliencyThresh(saliencyMap)
-    segmentation, background = cvUtils.connectedComponents(protoObjects)
+    # Convert image to principal color space, apply saliency detection to each channel,
+    # and combine the results using mean weighted by corresponding eigenvalues.
+    image, eigenvalues = pcs.convertToPCS(cv2.cvtColor(bgrImage, cv2.COLOR_BGR2LAB), 3)
+    saliencyMap = srs.colorSRS(image, weights=eigenvalues)
+    # If user chose so, use the center prior heuristic
+    if centerPrior:
+        center = saliency.centerMap(saliencyMap.shape[0], saliencyMap.shape[1])
+        saliencyMap = centerFactor * center + (1 - centerFactor) * saliencyMap
     # generate a mask for the objects in the image.
-    charMask = segmentation.foregroundMask(fgVal=cv2.GC_PR_FGD, bgVal=cv2.GC_PR_BGD)
+    charMask = grabcutSaliencyThresh(saliencyMap)
     # Run grabcut to enhance the result
     bgModel, fgModel = [None] * 2
-    rows, cols = resized.shape
+    rows, cols = saliencyMap.shape
     colorResized = cv2.resize(bgrImage, (cols, rows))
     cv2.grabCut(colorResized, charMask, None, bgModel, fgModel, 1)
     # Only keep the largest connected component, we'll assume it's the character
@@ -49,9 +78,13 @@ def srsGrabcutBgRemoval(bgrImage):
 if __name__ == "__main__":
     inputFolder = os.path.join('data', 'background')
     outputFolder = os.path.join('data', 'srs_grabcut_bgrm')
+    centeredOutput = os.path.join('data', 'centered_srs_grabcut_bgrm')
+
     for filename in cvUtils.imagesInFolder(inputFolder):
         print 'processing ' + filename
         image = cv2.imread(filename)
-        mask = srsGrabcutBgRemoval(image)
-        cv2.imwrite(os.path.join(outputFolder, os.path.splitext(filename)[0] + '.png'),
-                    cvUtils.maskAsAlpha(image, mask))
+        mask = srsGrabcutBgRemoval(image, centerPrior = False)
+        centeredMask = srsGrabcutBgRemoval(image, centerPrior = True)
+        stem = os.path.splitext(os.path.basename(filename))[0] + '.png'
+        cv2.imwrite(os.path.join(outputFolder, stem), mask)
+        cv2.imwrite(os.path.join(centeredOutput, stem), centeredMask)

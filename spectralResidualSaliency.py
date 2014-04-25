@@ -8,6 +8,35 @@ import os.path
 from scipy.ndimage.filters import gaussian_filter
 import cvUtils
 import principalColorSpace as pcs
+import saliency
+
+def colorSRS(image, weights = None, avgHalfsize = 8, gaussianSigma = 32, maxDim = 500):
+    """ Computes a saliency map of a color image using spectral residual saliency on
+        each layer individually, then combines the results by taking a (weighted)
+        average.
+    """
+    # Treat the case of grayscale image specifically.
+    if len(image.shape) < 3 or image.shape[2] == 1:
+        saliency = spectralResidualSaliency(image, avgHalfsize, gaussianSigma, maxDim)
+        cv2.imshow('input', image/255)
+        cv2.imshow('output', saliency)
+        cv2.waitKey(0)
+        return saliency
+    # Set the weights if not set.
+    rows, cols, channels = image.shape
+    if weights == None:
+        weights = [1] * channels
+    avgResult = None
+    # Compute and combine
+    for i in range(0,channels):
+        channel = np.array(image[:,:,i], copy=False)
+        saliency = spectralResidualSaliency(channel, avgHalfsize, gaussianSigma, maxDim)
+        if avgResult == None:
+            avgResult = weights[i] * saliency
+        else:
+            avgResult += weights[i] * saliency
+    # Our implementation of SRS happens to normalize each layer to the [0;1] range.
+    return avgResult / np.sum(weights)
 
 def spectralResidualSaliency(grayscaleImage, avgHalfsize = 8, gaussianSigma = 32, maxDim = 500):
     """Computes a saliency map of an image using the spectral residual saliency method
@@ -23,7 +52,7 @@ def spectralResidualSaliency(grayscaleImage, avgHalfsize = 8, gaussianSigma = 32
     """
     # Resize the source image
     newSize = None
-    sourceRows, sourceCols = grayscaleImage.shape
+    sourceRows, sourceCols = grayscaleImage.shape[0:2]
     
     if sourceRows > sourceCols:
         newSize = (sourceCols * maxDim / sourceRows, maxDim)
@@ -50,31 +79,20 @@ def spectralResidualSaliency(grayscaleImage, avgHalfsize = 8, gaussianSigma = 32
     minSaliency = np.amin(filteredMap)
     maxSaliency = np.amax(filteredMap)
 
-    return ((filteredMap - minSaliency) / (maxSaliency - minSaliency), resizedImage)
-    
-
-def saliencyThresh(saliencyMap):
-    """ Detect proto-objects from a saliency map using the thresholding technique by
-        Hou, 2007.
-
-    Args:
-        saliencyMap (array): floating point saliency map to detect object in.
-    Returns:
-        A floating point image where a pixel is 1 if there is a proto-object detected,
-        0 otherwise.
-    """
-    floatSaliency = np.array(saliencyMap, dtype='float32')
-    threshValue = np.mean(floatSaliency) / 3
-    retval, thresholded = cv2.threshold(floatSaliency, threshValue, 1, cv2.THRESH_BINARY)
-    return thresholded
+    return (filteredMap - minSaliency) / (maxSaliency - minSaliency)
 
 if __name__ == "__main__":
     for imageFilename in cvUtils.imagesInFolder('data/background'):
         image = cv2.imread(imageFilename)
-        grayscale = pcs.convertToPrincipalColor(cv2.cvtColor(image, cv2.COLOR_BGR2LAB))
-        saliencyMap, resizedImage = spectralResidualSaliency(grayscale)
-        protoObjects = saliencyThresh(saliencyMap)
-        cv2.imshow('original', grayscale)
+        # convert to principal color space, use eigenvalues as layer weights
+        pcsImage = pcs.convertToPCS(cv2.cvtColor(image, cv2.COLOR_BGR2LAB), 3)
+        saliencyMap = colorSRS(pcsImage)
+        rows, cols = saliencyMap.shape[0:2]
+        w = 0.7
+        center = saliency.centerMap(rows, cols)
+        centered = center * w + saliencyMap * (1 - w)
+        cv2.imshow('original', image)
         cv2.imshow('saliency', saliencyMap)
-        cv2.imshow('protoObjects', protoObjects)
+        cv2.imshow('center map', center)
+        cv2.imshow('centered', centered)
         cv2.waitKey(0)
