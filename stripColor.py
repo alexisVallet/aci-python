@@ -14,6 +14,8 @@ if __name__ == "__main__":
     yesNo = raw_input("This is going to keep only the alpha channel of all images in " + folder + ", do you want to continue ? [yes/no]")
     if yesNo == "yes":
         for filename in cvUtils.imagesInFolder(folder):
-            [b, g, r, a] = cv2.split(cv2.imread(filename, -1))
-            cv2.imwrite(filename, a)
+            image = cv2.imread(filename, -1)
+            if len(cv2.split(image)) > 1:
+                [b, g, r, a] = cv2.split(image)
+                cv2.imwrite(filename, a)
         
