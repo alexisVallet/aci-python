@@ -18,9 +18,6 @@ def colorSRS(image, weights = None, avgHalfsize = 8, gaussianSigma = 32, maxDim 
     # Treat the case of grayscale image specifically.
     if len(image.shape) < 3 or image.shape[2] == 1:
         saliency = spectralResidualSaliency(image, avgHalfsize, gaussianSigma, maxDim)
-        cv2.imshow('input', image/255)
-        cv2.imshow('output', saliency)
-        cv2.waitKey(0)
         return saliency
     # Set the weights if not set.
     rows, cols, channels = image.shape

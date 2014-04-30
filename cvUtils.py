@@ -6,6 +6,9 @@ import objectSegmentation as objseg
 import array
 import random
 
+def maxDimSize(rows,cols,maxDim):
+    return (rows * maxDim / cols, maxDim) if cols > rows else (maxDim, cols * maxDim / rows)
+
 def showScaled(winName, grayscaleImage):
     maxVal = np.amax(grayscaleImage)
     minVal = np.amin(grayscaleImage)

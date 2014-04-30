@@ -21,7 +21,6 @@ def convertToPCS(colorImage, outputChannels = 3):
     # Find out the eigenvalues of the covariance matrix
     covariance = np.cov(pixels, rowvar = 0)
     eigenvalues = np.sort(np.linalg.eigvalsh(covariance))[::-1]
-    print eigenvalues
     # Compute the actual PCA
     pca = decomp.PCA(n_components = outputChannels)
     newPixels = pca.fit_transform(pixels)
