@@ -62,6 +62,7 @@ def srsGrabcutBgRemoval(bgrImage, centerPrior = False, centerFactor = 0.7, nbCom
         # Convert image to principal color space, apply saliency detection to each 
         # channel, and combine the results using mean weighted by corresponding 
         # eigenvalues.
+        bgrImage = bgrImage.astype(np.float32)/255
         cvtImage = cv2.cvtColor(bgrImage, cv2.COLOR_BGR2LAB) if convertToLab else bgrImage
         if usePCS:
             image, eigenvalues = pcs.convertToPCS(cvtImage, nbComp)
@@ -76,7 +77,7 @@ def srsGrabcutBgRemoval(bgrImage, centerPrior = False, centerFactor = 0.7, nbCom
     charMask = grabcutSaliencyThresh(saliencyMap)
     # Run grabcut to enhance the result
     bgModel, fgModel = [None] * 2
-    colorResized = cv2.resize(bgrImage, (cols, rows))
+    colorResized = (cv2.resize(bgrImage, (cols, rows))*255).astype(np.uint8)
     cv2.grabCut(colorResized, charMask, None, bgModel, fgModel, 1)
     # Only keep the largest connected component, we'll assume it's the character
     cvMaskBool = np.equal(charMask, np.ones([rows, cols]) * cv2.GC_PR_FGD)
@@ -97,20 +98,20 @@ if __name__ == "__main__":
         filename = os.path.splitext(os.path.basename(filename))[0] + '.png'
         rootFolder = 'data'
 
-        for colorSpace in ['BGR', 'LAB']:
+        for colorSpace in ['LAB']:
             for centerPrior in [True, False]:
-                for nbComp in [3]:
-                    mask = srsGrabcutBgRemoval(image,
-                                               centerPrior = centerPrior,
-                                               nbComp = nbComp,
-                                               convertToLab = (colorSpace == 'LAB'),
-                                               usePCS = False)
-                    folder = os.path.join(
-                        rootFolder,
-                        colorSpace + '_' + repr(nbComp) 
-                        + ('_center' if centerPrior else '')
-                        + '_noPCS')
-                    if not os.path.exists(folder):
-                        os.makedirs(folder)
-                    print os.path.join(folder, filename)
-                    cv2.imwrite(os.path.join(folder, filename), mask * 255)
+                for nbComp in [1,2,3]:
+                    for usePCS in [False] if nbComp <= 2 else [True, False]:
+                        mask = srsGrabcutBgRemoval(image,
+                                                   centerPrior = centerPrior,
+                                                   nbComp = nbComp,
+                                                   convertToLab = (colorSpace == 'LAB'),
+                                                   usePCS = usePCS)
+                        folder = os.path.join(
+                            rootFolder,
+                            colorSpace + '_' + repr(nbComp) 
+                            + ('_center' if centerPrior else '')
+                            + '_noPCS')
+                        if not os.path.exists(folder):
+                            os.makedirs(folder)
+                        cv2.imwrite(os.path.join(folder, filename), mask * 255)
