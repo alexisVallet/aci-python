@@ -19,7 +19,7 @@ def saliencyThresh(saliencyMap):
     retval, thresholded = cv2.threshold(floatSaliency, threshValue, 1, cv2.THRESH_BINARY)
     return thresholded
 
-def centerMap(rows, cols, sigmaX = None, sigmaY = None):
+def centerMap(rows, cols, sigmaFactor = 1./6.):
     """ Returns a center saliency map, which is simply a centered gaussian. In practice
         outperforms many saliency models on its own.
 
@@ -29,10 +29,8 @@ def centerMap(rows, cols, sigmaX = None, sigmaY = None):
     Returns:
         A center saliency map.
     """
-    if sigmaX == None:
-        sigmaX = cols / 6
-    if sigmaY == None:
-        sigmaY = rows / 6
+    sigmaX = cols * sigmaFactor
+    sigmaY = rows * sigmaFactor
     sigmaX2 = 2*sigmaX**2
     sigmaY2 = 2*sigmaY**2
     mx = cols / 2

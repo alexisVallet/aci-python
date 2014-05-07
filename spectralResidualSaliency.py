@@ -35,7 +35,7 @@ def colorSRS(image, weights = None, avgHalfsize = 8, gaussianSigma = 32, maxDim 
     # Our implementation of SRS happens to normalize each layer to the [0;1] range.
     return avgResult / np.sum(weights)
 
-def spectralResidualSaliency(grayscaleImage, avgHalfsize = 8, gaussianSigma = 32, maxDim = 500):
+def spectralResidualSaliency(grayscaleImage, avgHalfsize = 4, gaussianSigma = 16, maxDim = 256):
     """Computes a saliency map of an image using the spectral residual saliency method
     from Hou, 2007.
 
